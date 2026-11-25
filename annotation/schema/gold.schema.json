@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Эталонная разметка договора",
+  "description": "Версия 0.2. Правило: все поля присутствуют всегда. Если в договоре нет значения — null и пояснение в note. Необязательные блоки (warranty, security, advance и т.п.) — null, если в договоре их нет. Удалять поля нельзя.",
+  "type": "object",
+  "required": ["meta", "layer1_clauses", "layer2_fields", "layer3_risks", "layer4_qa", "notes"],
+  "additionalProperties": false,
+  "$defs": {
+    "str_or_null": {"type": ["string", "null"]},
+    "num_or_null": {"type": ["number", "null"]},
+    "date_or_null": {"type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "evidence": {
+      "type": "object",
+      "required": ["clauses", "quote"],
+      "properties": {
+        "clauses": {"type": "array", "items": {"type": "string"}},
+        "quote": {"$ref": "#/$defs/str_or_null"},
+        "note": {"$ref": "#/$defs/str_or_null"}
+      }
+    },
+    "role_norm": {"enum": ["заказчик", "исполнитель"]},
+    "party": {
+      "allOf": [{"$ref": "#/$defs/evidence"}],
+      "type": "object",
+      "required": ["name_full", "name_short", "inn", "role", "role_norm", "signatory", "basis"],
+      "properties": {
+        "name_full": {"$ref": "#/$defs/str_or_null"},
+        "name_short": {"$ref": "#/$defs/str_or_null"},
+        "inn": {"type": ["string", "null"], "pattern": "^\\d{10}(\\d{2})?$"},
+        "role": {"type": "string", "description": "как названа сторона в договоре: Заказчик, Поставщик, Исполнитель, Подрядчик"},
+        "role_norm": {"$ref": "#/$defs/role_norm"},
+        "signatory": {"$ref": "#/$defs/str_or_null"},
+        "basis": {"$ref": "#/$defs/str_or_null"}
+      }
+    },
+    "term": {
+      "allOf": [{"$ref": "#/$defs/evidence"}],
+      "type": "object",
+      "required": ["value", "date", "relative"],
+      "properties": {
+        "value": {"$ref": "#/$defs/str_or_null"},
+        "date": {"$ref": "#/$defs/date_or_null"},
+        "relative": {"$ref": "#/$defs/str_or_null"}
+      }
+    },
+    "penalty": {
+      "allOf": [{"$ref": "#/$defs/evidence"}],
+      "type": "object",
+      "required": ["payer", "for", "type", "size"],
+      "properties": {
+        "payer": {"$ref": "#/$defs/role_norm"},
+        "for": {"type": "string"},
+        "type": {"enum": ["пени", "штраф"]},
+        "size": {"type": "string"}
+      }
+    },
+    "valued_ev": {
+      "allOf": [{"$ref": "#/$defs/evidence"}],
+      "type": "object",
+      "required": ["value"],
+      "properties": {"value": {"type": "string"}}
+    },
+    "unilateral": {
+      "allOf": [{"$ref": "#/$defs/evidence"}],
+      "type": "object",
+      "required": ["present", "basis", "grounds"],
+      "properties": {
+        "present": {"type": ["boolean", "null"]},
+        "basis": {"$ref": "#/$defs/str_or_null"},
+        "grounds": {"type": ["array", "null"], "items": {"type": "string"}}
+      }
+    }
+  },
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["doc_id", "law", "contract_type", "stage", "contract_number", "ikz", "canonical_text", "annotator", "annotation_date", "schema_version"],
+      "properties": {
+        "doc_id": {"type": "string", "pattern": "^(44|223)fz_\\d{4}$"},
+        "law": {"enum": ["44-ФЗ", "223-ФЗ"]},
+        "contract_type": {"enum": ["поставка", "услуги", "работы", "другое"]},
+        "stage": {"enum": ["заключённый", "проект"]},
+        "contract_number": {"$ref": "#/$defs/str_or_null"},
+        "ikz": {"$ref": "#/$defs/str_or_null"},
+        "canonical_text": {"type": "string"},
+        "annotator": {"type": "string"},
+        "annotation_date": {"type": "string"},
+        "schema_version": {"const": "0.2"}
+      }
+    },
+    "layer1_clauses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "number", "section", "start", "end", "text"]
+      }
+    },
+    "layer2_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parties", "subject", "price", "terms", "liability", "termination", "jurisdiction", "optional"],
+      "properties": {
+        "parties": {
+          "type": "object",
+          "required": ["customer", "contractor"],
+          "properties": {"customer": {"$ref": "#/$defs/party"}, "contractor": {"$ref": "#/$defs/party"}}
+        },
+        "subject": {
+          "allOf": [{"$ref": "#/$defs/evidence"}],
+          "type": "object",
+          "required": ["value", "items", "stages"],
+          "properties": {
+            "value": {"type": "string"},
+            "items": {"type": ["array", "null"], "items": {
+              "type": "object", "required": ["name", "unit", "quantity", "unit_price"],
+              "properties": {"name": {"type": "string"}, "unit": {"$ref": "#/$defs/str_or_null"},
+                             "quantity": {"$ref": "#/$defs/num_or_null"}, "unit_price": {"$ref": "#/$defs/num_or_null"}}}},
+            "stages": {"type": ["integer", "null"], "description": "число этапов; null, если договор не разбит на этапы"}
+          }
+        },
+        "price": {
+          "allOf": [{"$ref": "#/$defs/evidence"}],
+          "type": "object",
+          "required": ["amount", "max_amount", "currency", "vat", "vat_rate", "vat_amount", "kind", "stage_prices"],
+          "properties": {
+            "amount": {"$ref": "#/$defs/num_or_null"},
+            "max_amount": {"$ref": "#/$defs/num_or_null"},
+            "currency": {"$ref": "#/$defs/str_or_null"},
+            "vat": {"enum": ["включён", "сверху", "без НДС", "не указано", "вариативно"]},
+            "vat_rate": {"$ref": "#/$defs/num_or_null"},
+            "vat_amount": {"$ref": "#/$defs/num_or_null"},
+            "kind": {"enum": ["твёрдая", "максимальная", "формула", "по заявкам", "не указано"]},
+            "stage_prices": {"type": ["array", "null"], "items": {"type": "number"}}
+          }
+        },
+        "terms": {
+          "type": "object",
+          "required": ["contract_date", "effective_from", "effective_to", "execution", "acceptance", "payment"],
+          "properties": {
+            "contract_date": {"$ref": "#/$defs/term"},
+            "effective_from": {"$ref": "#/$defs/term"},
+            "effective_to": {"$ref": "#/$defs/term"},
+            "execution": {
+              "allOf": [{"$ref": "#/$defs/term"}],
+              "type": "object",
+              "required": ["schedule"],
+              "properties": {"schedule": {"type": ["array", "null"], "items": {
+                "type": "object", "required": ["stage", "from", "to"],
+                "properties": {"stage": {"type": "integer"}, "from": {"$ref": "#/$defs/date_or_null"}, "to": {"$ref": "#/$defs/date_or_null"}}}}}
+            },
+            "acceptance": {"$ref": "#/$defs/term"},
+            "payment": {"$ref": "#/$defs/term"}
+          }
+        },
+        "liability": {
+          "type": "object",
+          "required": ["penalties", "caps", "other", "not_applicable"],
+          "properties": {
+            "penalties": {"type": "array", "items": {"$ref": "#/$defs/penalty"}},
+            "caps": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/valued_ev"}], "type": "object", "required": ["party"],
+                     "properties": {"party": {"enum": ["заказчик", "исполнитель", "обе"]}}}},
+            "other": {"type": "array", "items": {"$ref": "#/$defs/valued_ev"}},
+            "not_applicable": {"type": "array", "items": {"type": "object", "required": ["clause", "reason"]}}
+          }
+        },
+        "termination": {
+          "allOf": [{"$ref": "#/$defs/evidence"}],
+          "type": "object",
+          "required": ["grounds", "unilateral"],
+          "properties": {
+            "grounds": {"type": "array", "items": {"type": "string"}},
+            "unilateral": {"type": "object", "required": ["customer", "contractor"],
+              "properties": {"customer": {"$ref": "#/$defs/unilateral"}, "contractor": {"$ref": "#/$defs/unilateral"}}}
+          }
+        },
+        "jurisdiction": {
+          "allOf": [{"$ref": "#/$defs/evidence"}],
+          "type": "object",
+          "required": ["court", "pretrial_claim", "claim_response_days"],
+          "properties": {
+            "court": {"$ref": "#/$defs/str_or_null"},
+            "pretrial_claim": {"type": ["boolean", "null"]},
+            "claim_response_days": {"type": ["string", "null"], "description": "с типом дней: «10 дней», «30 календарных дней»"}
+          }
+        },
+        "optional": {
+          "type": "object",
+          "description": "Блоки, которые есть не во всех договорах. Если в договоре нет — null.",
+          "required": ["advance", "security", "warranty"],
+          "properties": {
+            "advance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/valued_ev"}]},
+            "security": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/valued_ev"}]},
+            "warranty": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/valued_ev"}]}
+          }
+        }
+      }
+    },
+    "layer3_risks": {"type": "object"},
+    "layer4_qa": {
+      "type": "array",
+      "items": {
+        "allOf": [{"$ref": "#/$defs/evidence"}],
+        "type": "object",
+        "required": ["id", "type", "question", "answerable", "answer"],
+        "properties": {
+          "id": {"type": "string"},
+          "type": {"enum": ["прямой", "условный", "составной", "расчётный", "наличие"]},
+          "question": {"type": "string"},
+          "answerable": {"type": "boolean"},
+          "answer": {"type": "string"},
+          "related_clauses": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}
